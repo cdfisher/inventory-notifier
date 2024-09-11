@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.client.chat.ChatMessageBuilder;
@@ -65,7 +66,8 @@ public class InventoryNotifierPlugin extends Plugin
 			log.info(String.valueOf(diff));
 
 			if (!diff.isEmpty()) {
-				sendChatNotification();
+
+				sendChatNotification(diff);
 			}
 			takeSnapshot();
 		}
@@ -82,10 +84,19 @@ public class InventoryNotifierPlugin extends Plugin
 		}
 	}
 
-	private void sendChatNotification()
+	private void sendChatNotification(Multiset<Integer> d)
 	{
-		final ChatMessageBuilder message = new ChatMessageBuilder()
-			.append("Item added to inventory");
+		ChatMessageBuilder message = new ChatMessageBuilder()
+			.append("Item added to inventory:");
+
+		for (Integer id : d.elementSet()) {
+			Item i = new Item(id, d.count(id));
+			message
+				.append(" ")
+				.append(client.getItemDefinition(id).getName())
+				.append(" x ")
+				.append(String.valueOf(i.getQuantity()));
+		}
 
 		chatMessageManager.queue(QueuedMessage.builder()
 			.type(ChatMessageType.GAMEMESSAGE)
