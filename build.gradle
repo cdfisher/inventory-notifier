@@ -1,5 +1,14 @@
 plugins {
 	id 'java'
+    id("com.gradleup.shadow") version "8.3.1"
+}
+
+shadowJar {
+    from sourceSets.test.output
+    configurations = [project.configurations.testRuntimeClasspath]
+    manifest {
+        attributes "Main-Class": "com.cdfisher.inventorynotifier.InventoryNotifierPluginTest"
+    }
 }
 
 repositories {
@@ -26,7 +35,7 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
-group = 'com.example'
+group = 'com.cdfisher.inventorynotifier'
 version = '1.0-SNAPSHOT'
 
 tasks.withType(JavaCompile) {
