@@ -9,12 +9,12 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.client.Notifier;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -34,7 +34,7 @@ public class InventoryNotifierPlugin extends Plugin
 	private InventoryNotifierConfig config;
 
 	@Inject
-	private Notifier notifier;
+	private ChatMessageManager chatMessageManager;
 
 	private Multiset<Integer> inventorySnapshot;
 
@@ -65,7 +65,7 @@ public class InventoryNotifierPlugin extends Plugin
 			log.info(String.valueOf(diff));
 
 			if (!diff.isEmpty()) {
-				notifier.notify("An item has entered your inventory");
+				sendChatNotification();
 			}
 			takeSnapshot();
 		}
@@ -80,6 +80,17 @@ public class InventoryNotifierPlugin extends Plugin
 			Arrays.stream(itemContainer.getItems())
 				.forEach(item -> inventorySnapshot.add(item.getId(), item.getQuantity()));
 		}
+	}
+
+	private void sendChatNotification()
+	{
+		final ChatMessageBuilder message = new ChatMessageBuilder()
+			.append("Item added to inventory");
+
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage(message.build())
+			.build());
 	}
 
 	@Provides
