@@ -12,6 +12,7 @@ import net.runelite.api.Client;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.ItemID;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.client.chat.ChatMessageBuilder;
 import net.runelite.client.chat.ChatMessageManager;
@@ -39,6 +40,8 @@ public class InventoryNotifierPlugin extends Plugin
 
 	private Multiset<Integer> inventorySnapshot;
 
+	private boolean skipNextEmptyVial = false;
+
 	@Override
 	protected void startUp() throws Exception
 	{
@@ -61,14 +64,36 @@ public class InventoryNotifierPlugin extends Plugin
 			Arrays.stream(inventoryContainer.getItems())
 				.forEach(item -> currentInventory.add(item.getId(), item.getQuantity()));
 
-			final Multiset<Integer> diff = Multisets.difference(currentInventory, inventorySnapshot);
+			final Multiset<Integer> diff = Multisets.difference(currentInventory, inventorySnapshot); // Items entering inventory
+			final Multiset<Integer> diffr = Multisets.difference(inventorySnapshot, currentInventory); // Items leaving inventory
 
-			log.info(String.valueOf(diff));
+			if (config.serum207Mode())
+			{
+				if (diffr.contains(ItemID.SERUM_207_1))
+				{
+					skipNextEmptyVial = true;
+				}
 
-			if (!diff.isEmpty()) {
-
-				sendChatNotification(diff);
+				if (!diff.isEmpty() && skipNextEmptyVial)
+				{
+					if (diff.contains(ItemID.EMPTY_VIAL))
+					{
+						diff.remove(ItemID.EMPTY_VIAL);
+						skipNextEmptyVial = false;
+					}
+				}
 			}
+
+			if (!diff.isEmpty() && config.notifyOnGain())
+			{
+				sendItemAddedNotification(diff);
+			}
+
+			if (!diffr.isEmpty() && config.notifyOnLoss())
+			{
+				sendItemRemovedNotification(diffr);
+			}
+
 			takeSnapshot();
 		}
 	}
@@ -84,10 +109,48 @@ public class InventoryNotifierPlugin extends Plugin
 		}
 	}
 
-	private void sendChatNotification(Multiset<Integer> d)
+	private void sendItemAddedNotification(Multiset<Integer> d)
 	{
+		String pluginName;
+		if (config.showPluginName())
+		{
+			pluginName = "[Inventory Notifier] ";
+		} else {
+			pluginName = "";
+		}
+
 		ChatMessageBuilder message = new ChatMessageBuilder()
+			.append(pluginName)
 			.append("Item added to inventory:");
+
+		for (Integer id : d.elementSet()) {
+			Item i = new Item(id, d.count(id));
+			message
+				.append(" ")
+				.append(client.getItemDefinition(id).getName())
+				.append(" x ")
+				.append(String.valueOf(i.getQuantity()));
+		}
+
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage(message.build())
+			.build());
+	}
+
+	private void sendItemRemovedNotification(Multiset<Integer> d)
+	{
+		String pluginName;
+		if (config.showPluginName())
+		{
+			pluginName = "[Inventory Notifier] ";
+		} else {
+			pluginName = "";
+		}
+
+		ChatMessageBuilder message = new ChatMessageBuilder()
+			.append(pluginName)
+			.append("Item removed from inventory:");
 
 		for (Integer id : d.elementSet()) {
 			Item i = new Item(id, d.count(id));
